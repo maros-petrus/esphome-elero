@@ -488,18 +488,18 @@ bool Elero::send_command(t_elero_command *cmd, uint8_t packet_len) {
   this->msg_tx_[7] = ((cmd->remote_addr >> 16) & 0xff); // source address
   this->msg_tx_[8] = ((cmd->remote_addr >> 8) & 0xff);
   this->msg_tx_[9] =((cmd->remote_addr) & 0xff);
-  this->msg_tx_[10] = ((cmd->remote_addr >> 16) & 0xff); // backward address
-  this->msg_tx_[11] = ((cmd->remote_addr >> 8) & 0xff);
-  this->msg_tx_[12] =((cmd->remote_addr) & 0xff);
-  this->msg_tx_[13] = ((cmd->remote_addr >> 16) & 0xff); // forward address
-  this->msg_tx_[14] = ((cmd->remote_addr >> 8) & 0xff);
-  this->msg_tx_[15] =((cmd->remote_addr) & 0xff);
+  this->msg_tx_[10] = ((cmd->backward_addr >> 16) & 0xff); // backward address
+  this->msg_tx_[11] = ((cmd->backward_addr >> 8) & 0xff);
+  this->msg_tx_[12] =((cmd->backward_addr) & 0xff);
+  this->msg_tx_[13] = ((cmd->forward_addr >> 16) & 0xff); // forward address
+  this->msg_tx_[14] = ((cmd->forward_addr >> 8) & 0xff);
+  this->msg_tx_[15] =((cmd->forward_addr) & 0xff);
   this->msg_tx_[16] = 0x01; // destination count
-  this->msg_tx_[17] = ((cmd->blind_addr >> 16) & 0xff); // blind address
-  this->msg_tx_[18] = ((cmd->blind_addr >> 8) & 0xff);
-  this->msg_tx_[19] = ((cmd->blind_addr) & 0xff);
 
   if (packet_len == 0x1d) {
+    this->msg_tx_[17] = ((cmd->blind_addr >> 16) & 0xff); // blind address
+    this->msg_tx_[18] = ((cmd->blind_addr >> 8) & 0xff);
+    this->msg_tx_[19] = ((cmd->blind_addr) & 0xff);
     for (int i = 0; i < 10; i++)
       this->msg_tx_[20 + i] = cmd->payload[i];
     this->msg_tx_[22] = ((code >> 8) & 0xff);
@@ -509,6 +509,9 @@ bool Elero::send_command(t_elero_command *cmd, uint8_t packet_len) {
 
     ESP_LOGV(TAG, "send: len=%02d, cnt=%02d, typ=0x%02x, typ2=0x%02x, hop=0x%02x, syst=0x%02x, chl=%02d, src=0x%02x%02x%02x, bwd=0x%02x%02x%02x, fwd=0x%02x%02x%02x, #dst=%02d, dst=0x%02x%02x%02x, payload=[0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x]", this->msg_tx_[0], this->msg_tx_[1], this->msg_tx_[2], this->msg_tx_[3], this->msg_tx_[4], this->msg_tx_[5], this->msg_tx_[6], this->msg_tx_[7], this->msg_tx_[8], this->msg_tx_[9], this->msg_tx_[10], this->msg_tx_[11], this->msg_tx_[12], this->msg_tx_[13], this->msg_tx_[14], this->msg_tx_[15], this->msg_tx_[16], this->msg_tx_[17], this->msg_tx_[18], this->msg_tx_[19], this->msg_tx_[20], this->msg_tx_[21], this->msg_tx_[22], this->msg_tx_[23], this->msg_tx_[24], this->msg_tx_[25], this->msg_tx_[26], this->msg_tx_[27], this->msg_tx_[28], this->msg_tx_[29]);
   } else {
+    this->msg_tx_[17] = cmd->short_dst;
+    this->msg_tx_[18] = cmd->payload[0];
+    this->msg_tx_[19] = cmd->payload[1];
     for (int i = 0; i < 8; i++)
       this->msg_tx_[20 + i] = cmd->payload[2 + i];
     this->msg_tx_[20] = ((code >> 8) & 0xff);

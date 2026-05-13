@@ -63,6 +63,15 @@ cover:
     command_tilt: 0x24
     command_check_len: 29
     command_control_len: 29
+    control_payload_1: 0x00
+    control_payload_2: 0x04
+    control_pck_inf1: 0x6a
+    control_pck_inf2: 0x00
+    control_down_pck_inf2: 0x00
+    control_hop: 0x0a
+    control_backward_address: 0xa831e5
+    control_forward_address: 0xf0d008
+    control_short_dst: 0x04
 ```
 
 ### Section spi
@@ -98,6 +107,12 @@ cover:
   * `command_tilt`: Configure the command sent for tilting the blind if different from `0x24` (Optional)
   * `command_check_len`: Configure the packet length used for status polling. Supported values are `29` and `27`, default is `29`. (Optional)
   * `command_control_len`: Configure the packet length used for UP, DOWN, STOP and TILT commands. Supported values are `29` and `27`, default is `29`. (Optional)
+  * `control_payload_1` / `control_payload_2`: Override the first two payload bytes for control packets while leaving the check packet values untouched. (Optional)
+  * `control_pck_inf1` / `control_pck_inf2`: Override the packet type bytes for control packets while leaving the check packet values untouched. (Optional)
+  * `control_down_pck_inf2`: Override the second packet type byte only for the DOWN command. Useful for remotes where UP/STOP and DOWN use different `typ2` values. (Optional)
+  * `control_hop`: Override the hop byte for control packets while leaving the check packet value untouched. (Optional)
+  * `control_backward_address` / `control_forward_address`: Override the backward and forward addresses for control packets. (Optional)
+  * `control_short_dst`: Override the one-byte destination field used by `len=27` control packets. (Optional)
 
 ## Getting the blind address and other values
 
@@ -122,7 +137,7 @@ You need to have an existing remote control configure and connected to to your b
   ```
     len=29, cnt=46, typ=0x6a, typ2=0x00, hop=0a, syst=01, chl=09, src=0x908bef, bwd=0x908bef, fwd=0x908bef, #dst=01, dst=e039c9, rssi=-84.0, lqi=47, crc= 1, payload=[0x00 0x04 0x00 0x00 0x20 0x00 0x00 0x00 0x00 0x40]
   ```
-  Some remotes use `len=29` for both state polling and control commands. Others use `len=29` for state polling but `len=27` for UP, DOWN and STOP. In that case, set `command_check_len: 29` and `command_control_len: 27`.
+  Some remotes use `len=29` for both state polling and control commands. Others use `len=29` for state polling but `len=27` for UP, DOWN and STOP. In that case, set `command_check_len: 29` and `command_control_len: 27`. If the short control packet also uses different `typ`, `hop`, `payload_1`, `payload_2`, or addressing fields, use the `control_*` options to override just the control packet profile.
 
   4. Add all required information to the configuration file and check. Your blinds should start moving.
 

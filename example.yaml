@@ -21,3 +21,12 @@ cover:
     name: Schlafzimmer
     command_check_len: 29
     command_control_len: 27
+    control_payload_1: 0x00
+    control_payload_2: 0x04
+    control_pck_inf1: 0x45
+    control_pck_inf2: 0x10
+    control_down_pck_inf2: 0x11
+    control_hop: 0x1a
+    control_backward_address: 0xa831e5
+    control_forward_address: 0xf0d008
+    control_short_dst: 0x04

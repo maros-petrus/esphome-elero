@@ -50,6 +50,9 @@ typedef struct {
   uint8_t counter;
   uint32_t blind_addr;
   uint32_t remote_addr;
+  uint32_t backward_addr;
+  uint32_t forward_addr;
+  uint8_t short_dst;
   uint8_t channel;
   uint8_t pck_inf[2];
   uint8_t hop;

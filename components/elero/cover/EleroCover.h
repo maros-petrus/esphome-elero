@@ -12,6 +12,16 @@ namespace elero {
 struct QueuedCommand {
   uint8_t command;
   uint8_t packet_len;
+  uint8_t payload_1;
+  uint8_t payload_2;
+  uint8_t pck_inf_1;
+  uint8_t pck_inf_2;
+  uint8_t hop;
+  uint32_t blind_addr;
+  uint32_t remote_addr;
+  uint32_t backward_addr;
+  uint32_t forward_addr;
+  uint8_t short_dst;
 };
 
 class EleroCover : public cover::Cover, public Component {
@@ -32,6 +42,15 @@ class EleroCover : public cover::Cover, public Component {
   void set_hop(uint8_t hop) { this->command_.hop = hop; }
   void set_pckinf_1(uint8_t pckinf) { this->command_.pck_inf[0] = pckinf; }
   void set_pckinf_2(uint8_t pckinf) { this->command_.pck_inf[1] = pckinf; }
+  void set_control_payload_1(uint8_t payload) { this->control_payload_1_ = payload; }
+  void set_control_payload_2(uint8_t payload) { this->control_payload_2_ = payload; }
+  void set_control_hop(uint8_t hop) { this->control_hop_ = hop; }
+  void set_control_pckinf_1(uint8_t pckinf) { this->control_pckinf_1_ = pckinf; }
+  void set_control_pckinf_2(uint8_t pckinf) { this->control_pckinf_2_ = pckinf; }
+  void set_control_down_pckinf_2(uint8_t pckinf) { this->control_down_pckinf_2_ = pckinf; }
+  void set_control_backward_address(uint32_t address) { this->control_backward_address_ = address; }
+  void set_control_forward_address(uint32_t address) { this->control_forward_address_ = address; }
+  void set_control_short_dst(uint8_t dst) { this->control_short_dst_ = dst; }
   void set_command_up(uint8_t cmd) { this->command_up_ = cmd; }
   void set_command_down(uint8_t cmd) { this->command_down_ = cmd; }
   void set_command_stop(uint8_t cmd) { this->command_stop_ = cmd; }
@@ -47,7 +66,8 @@ class EleroCover : public cover::Cover, public Component {
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
   void set_rx_state(uint8_t state);
   void handle_commands(uint32_t now);
-  void queue_command(uint8_t command, uint8_t packet_len);
+  void queue_check_command();
+  void queue_control_command(uint8_t command);
   void recompute_position();
   void start_movement(cover::CoverOperation op);
   bool is_at_target();
@@ -76,6 +96,15 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t command_check_{0x00};
   uint8_t command_stop_{0x10};
   uint8_t command_tilt_{0x24};
+  uint8_t control_payload_1_{0x00};
+  uint8_t control_payload_2_{0x04};
+  uint8_t control_hop_{0x0a};
+  uint8_t control_pckinf_1_{0x6a};
+  uint8_t control_pckinf_2_{0x00};
+  uint8_t control_down_pckinf_2_{0x00};
+  uint8_t control_short_dst_{0x00};
+  uint32_t control_backward_address_{0x000000};
+  uint32_t control_forward_address_{0x000000};
   uint8_t command_check_len_{0x1d};
   uint8_t command_control_len_{0x1d};
   std::queue<QueuedCommand> commands_to_send_;

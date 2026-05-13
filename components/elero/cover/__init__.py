@@ -12,9 +12,18 @@ CONF_BLIND_ADDRESS = "blind_address"
 CONF_REMOTE_ADDRESS = "remote_address"
 CONF_PAYLOAD_1 = "payload_1"
 CONF_PAYLOAD_2 = "payload_2"
+CONF_CONTROL_PAYLOAD_1 = "control_payload_1"
+CONF_CONTROL_PAYLOAD_2 = "control_payload_2"
 CONF_PCKINF_1 = "pck_inf1"
 CONF_PCKINF_2 = "pck_inf2"
+CONF_CONTROL_PCKINF_1 = "control_pck_inf1"
+CONF_CONTROL_PCKINF_2 = "control_pck_inf2"
+CONF_CONTROL_DOWN_PCKINF_2 = "control_down_pck_inf2"
 CONF_HOP = "hop"
+CONF_CONTROL_HOP = "control_hop"
+CONF_CONTROL_BACKWARD_ADDRESS = "control_backward_address"
+CONF_CONTROL_FORWARD_ADDRESS = "control_forward_address"
+CONF_CONTROL_SHORT_DST = "control_short_dst"
 CONF_COMMAND_UP = "command_up"
 CONF_COMMAND_DOWN = "command_down"
 CONF_COMMAND_STOP = "command_stop"
@@ -43,9 +52,18 @@ CONFIG_SCHEMA = cover.cover_schema(EleroCover).extend(
         cv.Optional(CONF_CLOSE_DURATION, default="0s"): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_PAYLOAD_1, default=0x00): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_PAYLOAD_2, default=0x04): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_PAYLOAD_1): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_PAYLOAD_2): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_PCKINF_1, default=0x6a): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_PCKINF_2, default=0x00): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_PCKINF_1): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_PCKINF_2): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_DOWN_PCKINF_2): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_HOP, default=0x0a): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_HOP): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_CONTROL_BACKWARD_ADDRESS): cv.hex_int_range(min=0x0, max=0xffffff),
+        cv.Optional(CONF_CONTROL_FORWARD_ADDRESS): cv.hex_int_range(min=0x0, max=0xffffff),
+        cv.Optional(CONF_CONTROL_SHORT_DST): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_UP, default=0x20): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_DOWN, default=0x40): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_STOP, default=0x10): cv.hex_int_range(min=0x0, max=0xff),
@@ -71,9 +89,18 @@ async def to_code(config):
     cg.add(var.set_close_duration(config[CONF_CLOSE_DURATION]))
     cg.add(var.set_payload_1(config[CONF_PAYLOAD_1]))
     cg.add(var.set_payload_2(config[CONF_PAYLOAD_2]))
+    cg.add(var.set_control_payload_1(config.get(CONF_CONTROL_PAYLOAD_1, config[CONF_PAYLOAD_1])))
+    cg.add(var.set_control_payload_2(config.get(CONF_CONTROL_PAYLOAD_2, config[CONF_PAYLOAD_2])))
     cg.add(var.set_pckinf_1(config[CONF_PCKINF_1]))
     cg.add(var.set_pckinf_2(config[CONF_PCKINF_2]))
+    cg.add(var.set_control_pckinf_1(config.get(CONF_CONTROL_PCKINF_1, config[CONF_PCKINF_1])))
+    cg.add(var.set_control_pckinf_2(config.get(CONF_CONTROL_PCKINF_2, config[CONF_PCKINF_2])))
+    cg.add(var.set_control_down_pckinf_2(config.get(CONF_CONTROL_DOWN_PCKINF_2, config.get(CONF_CONTROL_PCKINF_2, config[CONF_PCKINF_2]))))
     cg.add(var.set_hop(config[CONF_HOP]))
+    cg.add(var.set_control_hop(config.get(CONF_CONTROL_HOP, config[CONF_HOP])))
+    cg.add(var.set_control_backward_address(config.get(CONF_CONTROL_BACKWARD_ADDRESS, config[CONF_BLIND_ADDRESS])))
+    cg.add(var.set_control_forward_address(config.get(CONF_CONTROL_FORWARD_ADDRESS, config[CONF_REMOTE_ADDRESS])))
+    cg.add(var.set_control_short_dst(config.get(CONF_CONTROL_SHORT_DST, config[CONF_CHANNEL])))
     cg.add(var.set_command_up(config[CONF_COMMAND_UP]))
     cg.add(var.set_command_down(config[CONF_COMMAND_DOWN]))
     cg.add(var.set_command_check(config[CONF_COMMAND_CHECK]))

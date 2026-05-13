@@ -32,7 +32,7 @@ void EleroCover::loop() {
   }
 
   if((now > this->poll_offset_) && (now - this->poll_offset_ - this->last_poll_) > intvl) {
-    this->queue_command(this->command_check_, this->command_check_len_);
+    this->queue_check_command();
     this->last_poll_ = now - this->poll_offset_;
   }
 
@@ -41,7 +41,7 @@ void EleroCover::loop() {
   if((this->current_operation != COVER_OPERATION_IDLE) && (this->open_duration_ > 0) && (this->close_duration_ > 0)) {
     this->recompute_position();
     if(this->is_at_target()) {
-      this->queue_command(this->command_stop_, this->command_control_len_);
+      this->queue_control_command(this->command_stop_);
       this->current_operation = COVER_OPERATION_IDLE;
       this->target_position_ = COVER_OPEN;
     }
@@ -75,8 +75,19 @@ void EleroCover::handle_commands(uint32_t now) {
   if((now - this->last_command_) > ELERO_DELAY_SEND_PACKETS) {
     if(this->commands_to_send_.size() > 0) {
       const auto queued = this->commands_to_send_.front();
-      this->command_.payload[4] = queued.command;
-      if(this->parent_->send_command(&this->command_, queued.packet_len)) {
+      auto tx = this->command_;
+      tx.blind_addr = queued.blind_addr;
+      tx.remote_addr = queued.remote_addr;
+      tx.backward_addr = queued.backward_addr;
+      tx.forward_addr = queued.forward_addr;
+      tx.short_dst = queued.short_dst;
+      tx.pck_inf[0] = queued.pck_inf_1;
+      tx.pck_inf[1] = queued.pck_inf_2;
+      tx.hop = queued.hop;
+      tx.payload[0] = queued.payload_1;
+      tx.payload[1] = queued.payload_2;
+      tx.payload[4] = queued.command;
+      if(this->parent_->send_command(&tx, queued.packet_len)) {
         this->send_packets_++;
         this->send_retries_ = 0;
         if(this->send_packets_ >= ELERO_SEND_PACKETS) {
@@ -98,8 +109,43 @@ void EleroCover::handle_commands(uint32_t now) {
   }
 }
 
-void EleroCover::queue_command(uint8_t command, uint8_t packet_len) {
-  this->commands_to_send_.push({command, packet_len});
+void EleroCover::queue_check_command() {
+  QueuedCommand queued{};
+  queued.command = this->command_check_;
+  queued.packet_len = this->command_check_len_;
+  queued.payload_1 = this->command_.payload[0];
+  queued.payload_2 = this->command_.payload[1];
+  queued.pck_inf_1 = this->command_.pck_inf[0];
+  queued.pck_inf_2 = this->command_.pck_inf[1];
+  queued.hop = this->command_.hop;
+  queued.blind_addr = this->command_.blind_addr;
+  queued.remote_addr = this->command_.remote_addr;
+  queued.backward_addr = this->command_.remote_addr;
+  queued.forward_addr = this->command_.remote_addr;
+  queued.short_dst = this->command_.channel;
+  this->commands_to_send_.push(queued);
+}
+
+void EleroCover::queue_control_command(uint8_t command) {
+  uint8_t pck_inf_2 = this->control_pckinf_2_;
+  if (command == this->command_down_) {
+    pck_inf_2 = this->control_down_pckinf_2_;
+  }
+
+  QueuedCommand queued{};
+  queued.command = command;
+  queued.packet_len = this->command_control_len_;
+  queued.payload_1 = this->control_payload_1_;
+  queued.payload_2 = this->control_payload_2_;
+  queued.pck_inf_1 = this->control_pckinf_1_;
+  queued.pck_inf_2 = pck_inf_2;
+  queued.hop = this->control_hop_;
+  queued.blind_addr = this->command_.blind_addr;
+  queued.remote_addr = this->command_.remote_addr;
+  queued.backward_addr = this->control_backward_address_;
+  queued.forward_addr = this->control_forward_address_;
+  queued.short_dst = this->control_short_dst_;
+  this->commands_to_send_.push(queued);
 }
 
 float EleroCover::get_setup_priority() const { return setup_priority::DATA; }
@@ -188,7 +234,7 @@ void EleroCover::control(const cover::CoverCall &call) {
   if (call.get_tilt().has_value()) {
     auto tilt = *call.get_tilt();
     if(tilt > 0) {
-      this->queue_command(this->command_tilt_, this->command_control_len_);
+      this->queue_control_command(this->command_tilt_);
       this->tilt = 1.0;
     } else {
       this->tilt = 0.0;
@@ -216,20 +262,20 @@ void EleroCover::start_movement(CoverOperation dir) {
   switch(dir) {
     case COVER_OPERATION_OPENING:
       ESP_LOGV(TAG, "Sending OPEN command");
-      this->queue_command(this->command_up_, this->command_control_len_);
+      this->queue_control_command(this->command_up_);
       // Reset tilt state on movement
       this->tilt = 0.0;
       this->last_operation_ = COVER_OPERATION_OPENING;
     break;
     case COVER_OPERATION_CLOSING:
       ESP_LOGV(TAG, "Sending CLOSE command");
-      this->queue_command(this->command_down_, this->command_control_len_);
+      this->queue_control_command(this->command_down_);
       // Reset tilt state on movement
       this->tilt = 0.0;
       this->last_operation_ = COVER_OPERATION_CLOSING;
     break;
     case COVER_OPERATION_IDLE:
-      this->queue_command(this->command_stop_, this->command_control_len_);
+      this->queue_control_command(this->command_stop_);
     break;
   }
 
