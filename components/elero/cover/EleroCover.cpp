@@ -377,6 +377,15 @@ void EleroCover::recompute_position() {
 
   this->last_recompute_time_ = now;
 
+  // Full open/close runs do not send an explicit STOP, so mark them complete
+  // once the estimated travel reaches the endpoint.
+  if ((this->current_operation == COVER_OPERATION_OPENING && this->position >= COVER_OPEN) ||
+      (this->current_operation == COVER_OPERATION_CLOSING && this->position <= COVER_CLOSED)) {
+    this->current_operation = COVER_OPERATION_IDLE;
+    this->target_position_ = this->position;
+    this->publish_state();
+  }
+
 }
 
 } // namespace elero
