@@ -113,6 +113,42 @@ cover:
   * `control_hop`: Override the hop byte for control packets while leaving the check packet value untouched. (Optional)
   * `control_backward_address` / `control_forward_address`: Override the backward and forward addresses for control packets. (Optional)
   * `control_short_dst`: Override the one-byte destination field used by `len=27` control packets. (Optional)
+  * `learn_remote_address`: Optional separate remote identity for the experimental pairing buttons. Set this to a new, unused 24-bit remote address when trying to teach ESPHome as an additional transmitter. (Optional)
+
+## Experimental pairing buttons
+
+The component includes an experimental button platform that can send the currently reverse-engineered learn-mode packets for the UniTec-868. This is intended for testing only.
+
+```yaml
+cover:
+  - platform: elero
+    id: rolladen_cover
+    blind_address: 0x140f17
+    channel: 33
+    remote_address: 0x23ab01
+    learn_remote_address: 0x23ab55
+    name: Rolladen
+
+button:
+  - platform: elero
+    name: "Rolladen Learn Start"
+    cover_id: rolladen_cover
+    learn_step: start
+  - platform: elero
+    name: "Rolladen Learn Up"
+    cover_id: rolladen_cover
+    learn_step: up
+  - platform: elero
+    name: "Rolladen Learn Down"
+    cover_id: rolladen_cover
+    learn_step: down
+  - platform: elero
+    name: "Rolladen Learn Finalize"
+    cover_id: rolladen_cover
+    learn_step: finalize
+```
+
+The intended flow is: power-cycle the receiver, trigger `Learn Start`, then use `Learn Up` and `Learn Down` at the same points where the physical remote would normally ask for confirmation. `Learn Finalize` is available as an extra step if the receiver expects a final marker packet.
 
 ## Getting the blind address and other values
 

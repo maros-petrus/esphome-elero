@@ -11,10 +11,10 @@ namespace esphome {
 namespace elero {
 
 struct QueuedCommand {
-  uint8_t command;
   uint8_t packet_len;
-  uint8_t payload_1;
-  uint8_t payload_2;
+  uint8_t counter;
+  bool has_counter;
+  uint8_t payload[10];
   uint8_t pck_inf_1;
   uint8_t pck_inf_2;
   uint8_t hop;
@@ -23,6 +23,13 @@ struct QueuedCommand {
   uint32_t backward_addr;
   uint32_t forward_addr;
   uint8_t short_dst;
+};
+
+enum EleroLearnStep : uint8_t {
+  ELERO_LEARN_STEP_START = 0,
+  ELERO_LEARN_STEP_UP = 1,
+  ELERO_LEARN_STEP_DOWN = 2,
+  ELERO_LEARN_STEP_FINALIZE = 3,
 };
 
 class EleroCover : public cover::Cover, public Component {
@@ -63,6 +70,7 @@ class EleroCover : public cover::Cover, public Component {
   void set_close_duration(uint32_t dur) { this->close_duration_ = dur; }
   void set_open_duration(uint32_t dur) { this->open_duration_ = dur; }
   void set_poll_interval(uint32_t intvl) { this->poll_intvl_ = intvl; }
+  void set_learn_remote_address(uint32_t remote) { this->learn_remote_address_ = remote; }
   uint32_t get_blind_address() { return this->command_.blind_addr; }
   uint32_t get_remote_address() { return this->command_.remote_addr; }
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
@@ -71,6 +79,7 @@ class EleroCover : public cover::Cover, public Component {
   void handle_commands(uint32_t now);
   void queue_check_command();
   void queue_control_command(uint8_t command);
+  void trigger_learn_step(EleroLearnStep step);
   void recompute_position();
   void start_movement(cover::CoverOperation op);
   bool is_at_target();
@@ -111,12 +120,14 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t control_short_dst_{0x00};
   uint32_t control_backward_address_{0x000000};
   uint32_t control_forward_address_{0x000000};
+  uint32_t learn_remote_address_{0x000000};
   uint8_t command_check_len_{0x1d};
   uint8_t command_control_len_{0x1d};
   std::queue<QueuedCommand> commands_to_send_;
   uint8_t send_retries_{0};
   uint8_t send_packets_{0};
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
+  uint8_t learn_counter_{1};
   ESPPreferenceObject counter_pref_;
   bool counter_pref_loaded_{false};
 };

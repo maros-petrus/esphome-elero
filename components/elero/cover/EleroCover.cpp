@@ -7,6 +7,11 @@ namespace elero {
 using namespace esphome::cover;
 
 static const char *const TAG = "elero.cover";
+static const uint8_t ELERO_LEARN_PAYLOAD_ACK[10] = {0x00, 0x00, 0x00, 0x00, 0x6c, 0xec, 0xa0, 0x20, 0xe4, 0x64};
+static const uint8_t ELERO_LEARN_PAYLOAD_START[10] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+static const uint8_t ELERO_LEARN_PAYLOAD_UP[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x40};
+static const uint8_t ELERO_LEARN_PAYLOAD_DOWN[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
+static const uint8_t ELERO_LEARN_PAYLOAD_FINALIZE[10] = {0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void EleroCover::dump_config() {
   LOG_COVER("", "Elero Cover", this);
@@ -117,6 +122,9 @@ void EleroCover::handle_commands(uint32_t now) {
     if(this->commands_to_send_.size() > 0) {
       const auto queued = this->commands_to_send_.front();
       auto tx = this->command_;
+      if (queued.has_counter) {
+        tx.counter = queued.counter;
+      }
       tx.blind_addr = queued.blind_addr;
       tx.remote_addr = queued.remote_addr;
       tx.backward_addr = queued.backward_addr;
@@ -125,16 +133,18 @@ void EleroCover::handle_commands(uint32_t now) {
       tx.pck_inf[0] = queued.pck_inf_1;
       tx.pck_inf[1] = queued.pck_inf_2;
       tx.hop = queued.hop;
-      tx.payload[0] = queued.payload_1;
-      tx.payload[1] = queued.payload_2;
-      tx.payload[4] = queued.command;
+      for (int i = 0; i < 10; i++) {
+        tx.payload[i] = queued.payload[i];
+      }
       if(this->parent_->send_command(&tx, queued.packet_len)) {
         this->send_packets_++;
         this->send_retries_ = 0;
         if(this->send_packets_ >= ELERO_SEND_PACKETS) {
           this->commands_to_send_.pop();
           this->send_packets_ = 0;
-          this->increase_counter();
+          if (!queued.has_counter) {
+            this->increase_counter();
+          }
         }
       } else {
         ESP_LOGD(TAG, "Retry #%d for blind 0x%02x", this->send_retries_, this->command_.blind_addr);
@@ -152,10 +162,12 @@ void EleroCover::handle_commands(uint32_t now) {
 
 void EleroCover::queue_check_command() {
   QueuedCommand queued{};
-  queued.command = this->command_check_;
   queued.packet_len = this->command_check_len_;
-  queued.payload_1 = this->command_.payload[0];
-  queued.payload_2 = this->command_.payload[1];
+  queued.has_counter = false;
+  for (int i = 0; i < 10; i++) {
+    queued.payload[i] = this->command_.payload[i];
+  }
+  queued.payload[4] = this->command_check_;
   queued.pck_inf_1 = this->command_.pck_inf[0];
   queued.pck_inf_2 = this->command_.pck_inf[1];
   queued.hop = this->command_.hop;
@@ -174,10 +186,14 @@ void EleroCover::queue_control_command(uint8_t command) {
   }
 
   QueuedCommand queued{};
-  queued.command = command;
   queued.packet_len = this->command_control_len_;
-  queued.payload_1 = this->control_payload_1_;
-  queued.payload_2 = this->control_payload_2_;
+  queued.has_counter = false;
+  for (int i = 0; i < 10; i++) {
+    queued.payload[i] = 0x00;
+  }
+  queued.payload[0] = this->control_payload_1_;
+  queued.payload[1] = this->control_payload_2_;
+  queued.payload[4] = command;
   queued.pck_inf_1 = this->control_pckinf_1_;
   queued.pck_inf_2 = pck_inf_2;
   queued.hop = this->control_hop_;
@@ -187,6 +203,54 @@ void EleroCover::queue_control_command(uint8_t command) {
   queued.forward_addr = this->control_forward_address_;
   queued.short_dst = this->control_short_dst_;
   this->commands_to_send_.push(queued);
+}
+
+void EleroCover::trigger_learn_step(EleroLearnStep step) {
+  const uint32_t learn_remote = this->learn_remote_address_ != 0 ? this->learn_remote_address_ : this->command_.remote_addr;
+  if (learn_remote == 0) {
+    ESP_LOGE(TAG, "No learn remote address configured");
+    return;
+  }
+
+  auto queue_learn_packet = [&](uint8_t pck_inf_1, uint8_t pck_inf_2, uint8_t hop, const uint8_t payload[10]) {
+    QueuedCommand queued{};
+    queued.packet_len = 0x1d;
+    queued.has_counter = true;
+    queued.counter = this->learn_counter_;
+    this->learn_counter_ = this->next_counter_(this->learn_counter_);
+    for (int i = 0; i < 10; i++) {
+      queued.payload[i] = payload[i];
+    }
+    queued.pck_inf_1 = pck_inf_1;
+    queued.pck_inf_2 = pck_inf_2;
+    queued.hop = hop;
+    queued.blind_addr = this->command_.blind_addr;
+    queued.remote_addr = learn_remote;
+    queued.backward_addr = learn_remote;
+    queued.forward_addr = learn_remote;
+    queued.short_dst = this->command_.channel;
+    this->commands_to_send_.push(queued);
+  };
+
+  switch (step) {
+    case ELERO_LEARN_STEP_START:
+      ESP_LOGI(TAG, "Queueing learn start for remote 0x%06x", learn_remote);
+      queue_learn_packet(0xf8, 0x10, 0x0a, ELERO_LEARN_PAYLOAD_ACK);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_START);
+      break;
+    case ELERO_LEARN_STEP_UP:
+      ESP_LOGI(TAG, "Queueing learn UP confirmation for remote 0x%06x", learn_remote);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_UP);
+      break;
+    case ELERO_LEARN_STEP_DOWN:
+      ESP_LOGI(TAG, "Queueing learn DOWN confirmation for remote 0x%06x", learn_remote);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_DOWN);
+      break;
+    case ELERO_LEARN_STEP_FINALIZE:
+      ESP_LOGI(TAG, "Queueing learn finalize for remote 0x%06x", learn_remote);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_FINALIZE);
+      break;
+  }
 }
 
 float EleroCover::get_setup_priority() const { return setup_priority::DATA; }

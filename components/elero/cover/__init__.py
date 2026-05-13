@@ -24,6 +24,7 @@ CONF_CONTROL_HOP = "control_hop"
 CONF_CONTROL_BACKWARD_ADDRESS = "control_backward_address"
 CONF_CONTROL_FORWARD_ADDRESS = "control_forward_address"
 CONF_CONTROL_SHORT_DST = "control_short_dst"
+CONF_LEARN_REMOTE_ADDRESS = "learn_remote_address"
 CONF_COMMAND_UP = "command_up"
 CONF_COMMAND_DOWN = "command_down"
 CONF_COMMAND_STOP = "command_stop"
@@ -64,6 +65,7 @@ CONFIG_SCHEMA = cover.cover_schema(EleroCover).extend(
         cv.Optional(CONF_CONTROL_BACKWARD_ADDRESS): cv.hex_int_range(min=0x0, max=0xffffff),
         cv.Optional(CONF_CONTROL_FORWARD_ADDRESS): cv.hex_int_range(min=0x0, max=0xffffff),
         cv.Optional(CONF_CONTROL_SHORT_DST): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_LEARN_REMOTE_ADDRESS): cv.hex_int_range(min=0x0, max=0xffffff),
         cv.Optional(CONF_COMMAND_UP, default=0x20): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_DOWN, default=0x40): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_STOP, default=0x10): cv.hex_int_range(min=0x0, max=0xff),
@@ -101,6 +103,7 @@ async def to_code(config):
     cg.add(var.set_control_backward_address(config.get(CONF_CONTROL_BACKWARD_ADDRESS, config[CONF_BLIND_ADDRESS])))
     cg.add(var.set_control_forward_address(config.get(CONF_CONTROL_FORWARD_ADDRESS, config[CONF_REMOTE_ADDRESS])))
     cg.add(var.set_control_short_dst(config.get(CONF_CONTROL_SHORT_DST, config[CONF_CHANNEL])))
+    cg.add(var.set_learn_remote_address(config.get(CONF_LEARN_REMOTE_ADDRESS, config[CONF_REMOTE_ADDRESS])))
     cg.add(var.set_command_up(config[CONF_COMMAND_UP]))
     cg.add(var.set_command_down(config[CONF_COMMAND_DOWN]))
     cg.add(var.set_command_check(config[CONF_COMMAND_CHECK]))

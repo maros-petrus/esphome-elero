@@ -15,6 +15,7 @@ elero:
 
 cover:
   - platform: elero
+    id: schlafzimmer_cover
     blind_address: 0xa831e5
     channel: 4
     remote_address: 0xf0d008
@@ -30,3 +31,22 @@ cover:
     control_backward_address: 0xa831e5
     control_forward_address: 0xf0d008
     control_short_dst: 0x04
+    learn_remote_address: 0xf0d055
+
+button:
+  - platform: elero
+    name: "Schlafzimmer Learn Start"
+    cover_id: schlafzimmer_cover
+    learn_step: start
+  - platform: elero
+    name: "Schlafzimmer Learn Up"
+    cover_id: schlafzimmer_cover
+    learn_step: up
+  - platform: elero
+    name: "Schlafzimmer Learn Down"
+    cover_id: schlafzimmer_cover
+    learn_step: down
+  - platform: elero
+    name: "Schlafzimmer Learn Finalize"
+    cover_id: schlafzimmer_cover
+    learn_step: finalize
