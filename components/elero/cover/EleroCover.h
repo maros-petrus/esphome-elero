@@ -79,6 +79,7 @@ class EleroCover : public cover::Cover, public Component {
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
   void set_rx_state(uint8_t state);
   void sync_counter_from_remote(uint8_t seen_counter);
+  void capture_learn_remote_init(const uint8_t *data, uint8_t len);
   void handle_learn_blind_reply();
   void handle_commands(uint32_t now);
   void queue_check_command();
@@ -132,6 +133,9 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t send_packets_{0};
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
   uint8_t learn_counter_{1};
+  uint8_t last_learn_init_data_[8]{0};
+  uint8_t last_learn_init_len_{0};
+  bool has_last_learn_init_{false};
   bool learn_waiting_for_reply_{false};
   bool learn_followup_queued_{false};
   ESPPreferenceObject counter_pref_;

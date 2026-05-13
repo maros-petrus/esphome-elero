@@ -496,7 +496,7 @@ void Elero::interpret_msg() {
     uint8_t dst_hi = this->msg_rx_[17];
     uint8_t dst_mid = this->msg_rx_[18];
     uint8_t dst_lo = this->msg_rx_[19];
-    uint8_t data_len = length >= 20 ? static_cast<uint8_t>(length - 20) : 0;
+    uint8_t data_len = length >= 19 ? static_cast<uint8_t>(length - 19) : 0;
     uint8_t crc = this->msg_rx_[length + 2] >> 7;
     uint8_t lqi = this->msg_rx_[length + 2] & 0x7f;
     float rssi;
@@ -529,6 +529,9 @@ void Elero::interpret_msg() {
     for (auto &entry : this->address_to_cover_mapping_) {
       if (entry.second->get_remote_address() == src) {
         entry.second->sync_counter_from_remote(cnt);
+        if (typ == ELERO_LEARN_TYPE_REMOTE_INIT) {
+          entry.second->capture_learn_remote_init(&this->msg_rx_[20], data_len);
+        }
       }
     }
     if (typ == ELERO_LEARN_TYPE_BLIND_REPLY) {

@@ -72,6 +72,19 @@ void EleroCover::sync_counter_from_remote(uint8_t seen_counter) {
   }
 }
 
+void EleroCover::capture_learn_remote_init(const uint8_t *data, uint8_t len) {
+  if (len == 0)
+    return;
+  if (len > sizeof(this->last_learn_init_data_))
+    len = sizeof(this->last_learn_init_data_);
+  for (uint8_t i = 0; i < len; i++) {
+    this->last_learn_init_data_[i] = data[i];
+  }
+  this->last_learn_init_len_ = len;
+  this->has_last_learn_init_ = true;
+  ESP_LOGI(TAG, "Captured learn init template for remote 0x%06x (%u bytes)", this->command_.remote_addr, len);
+}
+
 void EleroCover::loop() {
   uint32_t intvl = this->poll_intvl_;
   uint32_t now = millis();
@@ -284,6 +297,10 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
     ESP_LOGE(TAG, "No learn remote address configured");
     return;
   }
+  if (step == ELERO_LEARN_STEP_START && learn_remote == this->command_.remote_addr) {
+    this->learn_counter_ = this->command_.counter;
+    ESP_LOGI(TAG, "Using synced counter %u for learn start on remote 0x%06x", this->learn_counter_, learn_remote);
+  }
 
   auto queue_raw_learn_packet = [&](uint8_t length, uint8_t type, uint8_t type2, uint8_t hop,
                                    uint8_t counter, uint8_t dst0, uint8_t dst1, uint8_t dst2,
@@ -326,11 +343,18 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
     this->learn_counter_ = this->next_counter_(this->learn_counter_);
     return counter;
   };
+  const uint8_t *learn_init_data = ELERO_LEARN_RAW_INIT_DATA;
+  uint8_t learn_init_len = sizeof(ELERO_LEARN_RAW_INIT_DATA);
+  if (this->has_last_learn_init_) {
+    learn_init_data = this->last_learn_init_data_;
+    learn_init_len = this->last_learn_init_len_;
+  }
 
   switch (step) {
     case ELERO_LEARN_STEP_START:
       ESP_LOGI(TAG, "Queueing learn start for remote 0x%06x", learn_remote);
-      queue_raw_learn_packet(0x1b, 0x70, 0x10, 0x00, next_learn_counter(), 0x21, 0x00, 0x02, ELERO_LEARN_RAW_INIT_DATA, 8);
+      ESP_LOGI(TAG, "Using %s learn init template (%u bytes)", this->has_last_learn_init_ ? "captured" : "built-in", learn_init_len);
+      queue_raw_learn_packet(0x1b, 0x70, 0x10, 0x00, next_learn_counter(), 0x21, 0x00, 0x02, learn_init_data, learn_init_len);
       {
         const uint32_t now = millis();
         queue_raw_learn_packet(0x1d, 0xf8, 0x10, 0x0a, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_ACK_PAYLOAD, 10, now + 700);
