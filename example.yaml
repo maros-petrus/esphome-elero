@@ -39,13 +39,13 @@ button:
     cover_id: schlafzimmer_cover
     learn_step: start
   - platform: elero
-    name: "Schlafzimmer Learn Up"
+    name: "Schlafzimmer Learn Confirm Up"
     cover_id: schlafzimmer_cover
-    learn_step: up
+    learn_step: confirm_up
   - platform: elero
-    name: "Schlafzimmer Learn Down"
+    name: "Schlafzimmer Learn Confirm Down"
     cover_id: schlafzimmer_cover
-    learn_step: down
+    learn_step: confirm_down
   - platform: elero
     name: "Schlafzimmer Learn Finalize"
     cover_id: schlafzimmer_cover

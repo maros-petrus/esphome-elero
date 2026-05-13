@@ -17,8 +17,8 @@ EleroLearnStep = elero_ns.enum("EleroLearnStep")
 
 LEARN_STEPS = {
     "start": EleroLearnStep.ELERO_LEARN_STEP_START,
-    "up": EleroLearnStep.ELERO_LEARN_STEP_UP,
-    "down": EleroLearnStep.ELERO_LEARN_STEP_DOWN,
+    "confirm_up": EleroLearnStep.ELERO_LEARN_STEP_CONFIRM_UP,
+    "confirm_down": EleroLearnStep.ELERO_LEARN_STEP_CONFIRM_DOWN,
     "finalize": EleroLearnStep.ELERO_LEARN_STEP_FINALIZE,
 }
 

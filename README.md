@@ -135,20 +135,20 @@ button:
     cover_id: rolladen_cover
     learn_step: start
   - platform: elero
-    name: "Rolladen Learn Up"
+    name: "Rolladen Learn Confirm Up"
     cover_id: rolladen_cover
-    learn_step: up
+    learn_step: confirm_up
   - platform: elero
-    name: "Rolladen Learn Down"
+    name: "Rolladen Learn Confirm Down"
     cover_id: rolladen_cover
-    learn_step: down
+    learn_step: confirm_down
   - platform: elero
     name: "Rolladen Learn Finalize"
     cover_id: rolladen_cover
     learn_step: finalize
 ```
 
-The intended flow is: power-cycle the receiver, trigger `Learn Start`, then use `Learn Up` and `Learn Down` at the same points where the physical remote would normally ask for confirmation. `Learn Finalize` is available as an extra step if the receiver expects a final marker packet.
+The intended flow is: power-cycle the receiver, trigger `Learn Start`, then press `Learn Confirm Up` or `Learn Confirm Down` depending on the current blind movement, repeating confirmations as needed. `Learn Finalize` is optional and should only be tried if the receiver appears to be waiting for one last step near the end.
 
 ## Getting the blind address and other values
 

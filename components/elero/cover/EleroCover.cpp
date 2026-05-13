@@ -7,10 +7,9 @@ namespace elero {
 using namespace esphome::cover;
 
 static const char *const TAG = "elero.cover";
-static const uint8_t ELERO_LEARN_PAYLOAD_ACK[10] = {0x00, 0x00, 0x00, 0x00, 0x6c, 0xec, 0xa0, 0x20, 0xe4, 0x64};
 static const uint8_t ELERO_LEARN_PAYLOAD_START[10] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
-static const uint8_t ELERO_LEARN_PAYLOAD_UP[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x40};
-static const uint8_t ELERO_LEARN_PAYLOAD_DOWN[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
+static const uint8_t ELERO_LEARN_PAYLOAD_CONFIRM_UP[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0xc0};
+static const uint8_t ELERO_LEARN_PAYLOAD_CONFIRM_DOWN[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
 static const uint8_t ELERO_LEARN_PAYLOAD_FINALIZE[10] = {0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void EleroCover::dump_config() {
@@ -235,16 +234,15 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
   switch (step) {
     case ELERO_LEARN_STEP_START:
       ESP_LOGI(TAG, "Queueing learn start for remote 0x%06x", learn_remote);
-      queue_learn_packet(0xf8, 0x10, 0x0a, ELERO_LEARN_PAYLOAD_ACK);
       queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_START);
       break;
-    case ELERO_LEARN_STEP_UP:
-      ESP_LOGI(TAG, "Queueing learn UP confirmation for remote 0x%06x", learn_remote);
-      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_UP);
+    case ELERO_LEARN_STEP_CONFIRM_UP:
+      ESP_LOGI(TAG, "Queueing learn confirm UP for remote 0x%06x", learn_remote);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_CONFIRM_UP);
       break;
-    case ELERO_LEARN_STEP_DOWN:
-      ESP_LOGI(TAG, "Queueing learn DOWN confirmation for remote 0x%06x", learn_remote);
-      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_DOWN);
+    case ELERO_LEARN_STEP_CONFIRM_DOWN:
+      ESP_LOGI(TAG, "Queueing learn confirm DOWN for remote 0x%06x", learn_remote);
+      queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_CONFIRM_DOWN);
       break;
     case ELERO_LEARN_STEP_FINALIZE:
       ESP_LOGI(TAG, "Queueing learn finalize for remote 0x%06x", learn_remote);
