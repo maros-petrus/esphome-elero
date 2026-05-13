@@ -133,6 +133,7 @@ class EleroCover : public cover::Cover, public Component {
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
   uint8_t learn_counter_{1};
   bool learn_waiting_for_reply_{false};
+  bool learn_followup_queued_{false};
   ESPPreferenceObject counter_pref_;
   bool counter_pref_loaded_{false};
 };

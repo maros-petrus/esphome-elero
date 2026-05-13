@@ -222,7 +222,7 @@ void EleroCover::queue_control_command(uint8_t command) {
 }
 
 void EleroCover::handle_learn_blind_reply() {
-  if (!this->learn_waiting_for_reply_) {
+  if (!this->learn_waiting_for_reply_ || this->learn_followup_queued_) {
     return;
   }
   const uint32_t learn_remote = this->learn_remote_address_ != 0 ? this->learn_remote_address_ : this->command_.remote_addr;
@@ -272,6 +272,7 @@ void EleroCover::handle_learn_blind_reply() {
 
   ESP_LOGI(TAG, "Blind learn reply received, queueing follow-up learn packets");
   this->learn_waiting_for_reply_ = false;
+  this->learn_followup_queued_ = true;
   const uint32_t now = millis();
   queue_raw_learn_packet(0x1d, 0xf8, 0x10, 0x0a, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_ACK_PAYLOAD, 10, now + 400);
   queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_START_PAYLOAD, 10, now + 900);
@@ -330,7 +331,13 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
     case ELERO_LEARN_STEP_START:
       ESP_LOGI(TAG, "Queueing learn start for remote 0x%06x", learn_remote);
       queue_raw_learn_packet(0x1b, 0x70, 0x10, 0x00, next_learn_counter(), 0x21, 0x00, 0x02, ELERO_LEARN_RAW_INIT_DATA, 8);
+      {
+        const uint32_t now = millis();
+        queue_raw_learn_packet(0x1d, 0xf8, 0x10, 0x0a, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_ACK_PAYLOAD, 10, now + 700);
+        queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_START_PAYLOAD, 10, now + 1300);
+      }
       this->learn_waiting_for_reply_ = true;
+      this->learn_followup_queued_ = true;
       break;
     case ELERO_LEARN_STEP_CONFIRM_UP:
       ESP_LOGI(TAG, "Queueing learn confirm UP for remote 0x%06x", learn_remote);
