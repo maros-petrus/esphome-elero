@@ -7,10 +7,12 @@ namespace elero {
 using namespace esphome::cover;
 
 static const char *const TAG = "elero.cover";
+static const uint8_t ELERO_LEARN_PAYLOAD_INIT_SHORT[10] = {0xe7, 0xb3, 0x00, 0x00, 0xc0, 0x60, 0xc8, 0xa8, 0x9e, 0xf8};
+static const uint8_t ELERO_LEARN_PAYLOAD_ACK[10] = {0x00, 0x00, 0x00, 0x00, 0x6c, 0xec, 0xa0, 0x20, 0xe4, 0x64};
 static const uint8_t ELERO_LEARN_PAYLOAD_START[10] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
 static const uint8_t ELERO_LEARN_PAYLOAD_CONFIRM_UP[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0xc0};
 static const uint8_t ELERO_LEARN_PAYLOAD_CONFIRM_DOWN[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
-static const uint8_t ELERO_LEARN_PAYLOAD_FINALIZE[10] = {0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static const uint8_t ELERO_LEARN_PAYLOAD_FINALIZE[10] = {0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
 
 void EleroCover::dump_config() {
   LOG_COVER("", "Elero Cover", this);
@@ -231,9 +233,31 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
     this->commands_to_send_.push(queued);
   };
 
+  auto queue_learn_short_init = [&]() {
+    QueuedCommand queued{};
+    queued.packet_len = 0x1b;
+    queued.has_counter = true;
+    queued.counter = this->learn_counter_;
+    this->learn_counter_ = this->next_counter_(this->learn_counter_);
+    for (int i = 0; i < 10; i++) {
+      queued.payload[i] = ELERO_LEARN_PAYLOAD_INIT_SHORT[i];
+    }
+    queued.pck_inf_1 = 0x70;
+    queued.pck_inf_2 = 0x10;
+    queued.hop = 0x00;
+    queued.blind_addr = this->command_.blind_addr;
+    queued.remote_addr = learn_remote;
+    queued.backward_addr = learn_remote;
+    queued.forward_addr = learn_remote;
+    queued.short_dst = 0x21;
+    this->commands_to_send_.push(queued);
+  };
+
   switch (step) {
     case ELERO_LEARN_STEP_START:
       ESP_LOGI(TAG, "Queueing learn start for remote 0x%06x", learn_remote);
+      queue_learn_short_init();
+      queue_learn_packet(0xf8, 0x10, 0x0a, ELERO_LEARN_PAYLOAD_ACK);
       queue_learn_packet(0x78, 0x10, 0x00, ELERO_LEARN_PAYLOAD_START);
       break;
     case ELERO_LEARN_STEP_CONFIRM_UP:
