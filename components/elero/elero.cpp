@@ -529,15 +529,6 @@ void Elero::interpret_msg() {
     for (auto &entry : this->address_to_cover_mapping_) {
       if (entry.second->get_remote_address() == src) {
         entry.second->sync_counter_from_remote(cnt);
-        if (typ == ELERO_LEARN_TYPE_REMOTE_INIT) {
-          entry.second->capture_learn_remote_init(&this->msg_rx_[20], data_len);
-        }
-      }
-    }
-    if (typ == ELERO_LEARN_TYPE_BLIND_REPLY) {
-      auto search = this->address_to_cover_mapping_.find(src);
-      if (search != this->address_to_cover_mapping_.end()) {
-        search->second->handle_learn_blind_reply();
       }
     }
     return;
