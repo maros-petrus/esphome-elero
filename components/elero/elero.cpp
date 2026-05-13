@@ -531,6 +531,12 @@ void Elero::interpret_msg() {
         entry.second->sync_counter_from_remote(cnt);
       }
     }
+    if (typ == ELERO_LEARN_TYPE_BLIND_REPLY) {
+      auto search = this->address_to_cover_mapping_.find(src);
+      if (search != this->address_to_cover_mapping_.end()) {
+        search->second->handle_learn_blind_reply();
+      }
+    }
     return;
   }
 
@@ -652,6 +658,20 @@ bool Elero::send_command(t_elero_command *cmd, uint8_t packet_len) {
     if (is_learn_packet_type(this->msg_tx_[2])) {
       log_raw_packet_info(TAG, "Learn send", this->msg_tx_, this->msg_tx_[0] + 3);
     }
+  }
+  return transmit();
+}
+
+bool Elero::send_raw_packet(const uint8_t *packet, uint8_t packet_len) {
+  if (packet_len > CC1101_FIFO_LENGTH) {
+    ESP_LOGE(TAG, "Raw packet too long (%d)", packet_len);
+    return false;
+  }
+  for (uint8_t i = 0; i < packet_len; i++) {
+    this->msg_tx_[i] = packet[i];
+  }
+  if (is_learn_packet_type(this->msg_tx_[2])) {
+    log_raw_packet_info(TAG, "Learn send", this->msg_tx_, packet_len);
   }
   return transmit();
 }

@@ -11,10 +11,12 @@ namespace esphome {
 namespace elero {
 
 struct QueuedCommand {
+  bool raw_mode;
   uint8_t packet_len;
   uint8_t counter;
   bool has_counter;
   uint8_t payload[10];
+  uint8_t raw_packet[CC1101_FIFO_LENGTH];
   uint8_t pck_inf_1;
   uint8_t pck_inf_2;
   uint8_t hop;
@@ -76,6 +78,7 @@ class EleroCover : public cover::Cover, public Component {
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
   void set_rx_state(uint8_t state);
   void sync_counter_from_remote(uint8_t seen_counter);
+  void handle_learn_blind_reply();
   void handle_commands(uint32_t now);
   void queue_check_command();
   void queue_control_command(uint8_t command);
@@ -128,6 +131,7 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t send_packets_{0};
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
   uint8_t learn_counter_{1};
+  bool learn_waiting_for_reply_{false};
   ESPPreferenceObject counter_pref_;
   bool counter_pref_loaded_{false};
 };
