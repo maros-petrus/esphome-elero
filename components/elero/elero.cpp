@@ -79,6 +79,10 @@ static bool is_learn_packet_type(uint8_t typ) {
          typ == ELERO_LEARN_TYPE_REMOTE_ACK || typ == ELERO_LEARN_TYPE_BLIND_REPLY;
 }
 
+static bool is_short_learn_packet_type(uint8_t typ) {
+  return typ == ELERO_LEARN_TYPE_REMOTE_INIT || typ == ELERO_LEARN_TYPE_BLIND_REPLY;
+}
+
 static const char *learn_packet_name(uint8_t typ) {
   switch (typ) {
     case ELERO_LEARN_TYPE_REMOTE_INIT:
@@ -482,6 +486,54 @@ void Elero::interpret_msg() {
   uint32_t bwd = ((uint32_t)this->msg_rx_[10] << 16) | ((uint32_t)this->msg_rx_[11] << 8) | (this->msg_rx_[12]);
   uint32_t fwd = ((uint32_t)this->msg_rx_[13] << 16) | ((uint32_t)this->msg_rx_[14] << 8) | (this->msg_rx_[15]);
   uint8_t num_dests = this->msg_rx_[16];
+  if (is_short_learn_packet_type(typ)) {
+    if (length + 3 > CC1101_FIFO_LENGTH) {
+      ESP_LOGE(TAG, "Received invalid short learn packet length (%d)", length);
+      log_raw_packet(TAG, "Invalid short learn packet", this->msg_rx_, length + 3 > CC1101_FIFO_LENGTH ? CC1101_FIFO_LENGTH : length + 3);
+      return;
+    }
+
+    uint8_t dst_hi = this->msg_rx_[17];
+    uint8_t dst_mid = this->msg_rx_[18];
+    uint8_t dst_lo = this->msg_rx_[19];
+    uint8_t data_len = length >= 20 ? static_cast<uint8_t>(length - 20) : 0;
+    uint8_t crc = this->msg_rx_[length + 2] >> 7;
+    uint8_t lqi = this->msg_rx_[length + 2] & 0x7f;
+    float rssi;
+    if(this->msg_rx_[length+1] > 127)
+      rssi = (float)((this->msg_rx_[length+1]-256)/2-74);
+    else
+      rssi = (float)((this->msg_rx_[length+1])/2-74);
+
+    char data_buf[3 * 32 + 1];
+    size_t pos = 0;
+    for (uint8_t i = 0; i < data_len && i < 32; i++) {
+      if (pos + 3 >= sizeof(data_buf))
+        break;
+      int written = snprintf(&data_buf[pos], sizeof(data_buf) - pos, "%02X ", this->msg_rx_[20 + i]);
+      if (written <= 0)
+        break;
+      pos += static_cast<size_t>(written);
+    }
+    if (pos > 0 && pos < sizeof(data_buf))
+      data_buf[pos - 1] = '\0';
+    else
+      data_buf[0] = '\0';
+
+    ESP_LOGD(TAG, "rcv'd short-learn: len=%02d, cnt=%02d, typ=0x%02x, typ2=0x%02x, hop=0x%02x, syst=0x%02x, chl=%02d, src=0x%06x, bwd=0x%06x, fwd=0x%06x, #dst=%02d, dst_bytes=[0x%02x 0x%02x 0x%02x], data_len=%02d, data=[%s], rssi=%2.1f, lqi=%2d, crc=%2d",
+             length, cnt, typ, typ2, hop, syst, chl, src, bwd, fwd, num_dests, dst_hi, dst_mid, dst_lo, data_len, data_buf, rssi, lqi, crc);
+    ESP_LOGI(TAG, "learn packet (%s): len=%02d cnt=%02d typ2=0x%02x hop=0x%02x src=0x%06x bwd=0x%06x fwd=0x%06x dst_bytes=[0x%02x 0x%02x 0x%02x] data=[%s]",
+             learn_packet_name(typ), length, cnt, typ2, hop, src, bwd, fwd, dst_hi, dst_mid, dst_lo, data_buf);
+    log_raw_packet(TAG, "Learn packet", this->msg_rx_, length + 3);
+
+    for (auto &entry : this->address_to_cover_mapping_) {
+      if (entry.second->get_remote_address() == src) {
+        entry.second->sync_counter_from_remote(cnt);
+      }
+    }
+    return;
+  }
+
   uint32_t dst;
   uint8_t dests_len;
   if(typ > 0x60) {
