@@ -9,6 +9,10 @@ namespace elero {
 static const char *TAG = "elero";
 static const uint8_t flash_table_encode[] = {0x08, 0x02, 0x0d, 0x01, 0x0f, 0x0e, 0x07, 0x05, 0x09, 0x0c, 0x00, 0x0a, 0x03, 0x04, 0x0b, 0x06};
 static const uint8_t flash_table_decode[] = {0x0a, 0x03, 0x01, 0x0c, 0x0d, 0x07, 0x0f, 0x06, 0x00, 0x08, 0x0b, 0x0e, 0x09, 0x02, 0x05, 0x04};
+static const uint8_t ELERO_LEARN_TYPE_REMOTE_INIT = 0x70;
+static const uint8_t ELERO_LEARN_TYPE_REMOTE_STEP = 0x78;
+static const uint8_t ELERO_LEARN_TYPE_REMOTE_ACK = 0xf8;
+static const uint8_t ELERO_LEARN_TYPE_BLIND_REPLY = 0xd4;
 
 void Elero::loop() {
   if(this->received_) {
@@ -50,6 +54,26 @@ static void log_raw_packet(const char *tag, const char *reason, const uint8_t *b
   else
     line[0] = '\0';
   ESP_LOGE(tag, "%s raw=[%s]", reason, line);
+}
+
+static bool is_learn_packet_type(uint8_t typ) {
+  return typ == ELERO_LEARN_TYPE_REMOTE_INIT || typ == ELERO_LEARN_TYPE_REMOTE_STEP ||
+         typ == ELERO_LEARN_TYPE_REMOTE_ACK || typ == ELERO_LEARN_TYPE_BLIND_REPLY;
+}
+
+static const char *learn_packet_name(uint8_t typ) {
+  switch (typ) {
+    case ELERO_LEARN_TYPE_REMOTE_INIT:
+      return "remote-init";
+    case ELERO_LEARN_TYPE_REMOTE_STEP:
+      return "remote-step";
+    case ELERO_LEARN_TYPE_REMOTE_ACK:
+      return "remote-ack";
+    case ELERO_LEARN_TYPE_BLIND_REPLY:
+      return "blind-reply";
+    default:
+      return "unknown";
+  }
 }
 
 void IRAM_ATTR Elero::interrupt(Elero *arg) {
@@ -469,6 +493,12 @@ void Elero::interpret_msg() {
   uint8_t *payload = &this->msg_rx_[19 + dests_len];
   msg_decode(payload);
   ESP_LOGD(TAG, "rcv'd: len=%02d, cnt=%02d, typ=0x%02x, typ2=0x%02x, hop=0x%02x, syst=0x%02x, chl=%02d, src=0x%06x, bwd=0x%06x, fwd=0x%06x, #dst=%02d, dst=0x%06x, rssi=%2.1f, lqi=%2d, crc=%2d, payload=[0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x]", length, cnt, typ, typ2, hop, syst, chl, src, bwd, fwd, num_dests, dst, rssi, lqi, crc, payload1, payload2, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7]);
+  if (is_learn_packet_type(typ)) {
+    ESP_LOGI(TAG, "learn packet (%s): len=%02d cnt=%02d typ2=0x%02x hop=0x%02x src=0x%06x bwd=0x%06x fwd=0x%06x dst=0x%06x raw-payload=[0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x]",
+             learn_packet_name(typ), length, cnt, typ2, hop, src, bwd, fwd, dst,
+             payload1, payload2, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7]);
+    log_raw_packet(TAG, "Learn packet", this->msg_rx_, length + 3 > CC1101_FIFO_LENGTH ? CC1101_FIFO_LENGTH : length + 3);
+  }
 
   for (auto &entry : this->address_to_cover_mapping_) {
     if (entry.second->get_remote_address() == src) {
