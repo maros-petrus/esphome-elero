@@ -15,6 +15,7 @@ struct QueuedCommand {
   uint8_t packet_len;
   uint8_t counter;
   bool has_counter;
+  uint32_t not_before;
   uint8_t payload[10];
   uint8_t raw_packet[CC1101_FIFO_LENGTH];
   uint8_t pck_inf_1;

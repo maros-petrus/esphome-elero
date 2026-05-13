@@ -9,9 +9,11 @@ using namespace esphome::cover;
 static const char *const TAG = "elero.cover";
 static const uint8_t ELERO_LEARN_RAW_INIT_DATA[8] = {0x90, 0xA8, 0x07, 0x53, 0xB0, 0xA8, 0x0B, 0xAF};
 static const uint8_t ELERO_LEARN_RAW_ACK_PAYLOAD[10] = {0x00, 0x00, 0x00, 0x00, 0x6c, 0xec, 0xa0, 0x20, 0xe4, 0x64};
-static const uint8_t ELERO_LEARN_RAW_START_PAYLOAD[10] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const uint8_t ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x40};
-static const uint8_t ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
+static const uint8_t ELERO_LEARN_RAW_START_PAYLOAD[10] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+static const uint8_t ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD_A[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0xc0};
+static const uint8_t ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD_B[10] = {0x00, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x40};
+static const uint8_t ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD_A[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0xc0};
+static const uint8_t ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD_B[10] = {0x00, 0x02, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x40};
 static const uint8_t ELERO_LEARN_RAW_FINALIZE_PAYLOAD[10] = {0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
 
 void EleroCover::dump_config() {
@@ -122,6 +124,9 @@ void EleroCover::handle_commands(uint32_t now) {
   if((now - this->last_command_) > ELERO_DELAY_SEND_PACKETS) {
     if(this->commands_to_send_.size() > 0) {
       const auto queued = this->commands_to_send_.front();
+      if (queued.not_before != 0 && static_cast<int32_t>(now - queued.not_before) < 0) {
+        return;
+      }
       bool success = false;
       if (queued.raw_mode) {
         success = this->parent_->send_raw_packet(queued.raw_packet, queued.packet_len);
@@ -172,6 +177,7 @@ void EleroCover::queue_check_command() {
   queued.raw_mode = false;
   queued.packet_len = this->command_check_len_;
   queued.has_counter = false;
+  queued.not_before = 0;
   for (int i = 0; i < 10; i++) {
     queued.payload[i] = this->command_.payload[i];
   }
@@ -197,6 +203,7 @@ void EleroCover::queue_control_command(uint8_t command) {
   queued.raw_mode = false;
   queued.packet_len = this->command_control_len_;
   queued.has_counter = false;
+  queued.not_before = 0;
   for (int i = 0; i < 10; i++) {
     queued.payload[i] = 0x00;
   }
@@ -229,11 +236,12 @@ void EleroCover::handle_learn_blind_reply() {
   };
   auto queue_raw_learn_packet = [&](uint8_t length, uint8_t type, uint8_t type2, uint8_t hop,
                                    uint8_t counter, uint8_t dst0, uint8_t dst1, uint8_t dst2,
-                                   const uint8_t *body, uint8_t body_len) {
+                                   const uint8_t *body, uint8_t body_len, uint32_t not_before = 0) {
     QueuedCommand queued{};
     queued.raw_mode = true;
     queued.has_counter = true;
     queued.counter = counter;
+    queued.not_before = not_before;
     queued.packet_len = length + 1;
     uint8_t *p = queued.raw_packet;
     p[0] = length;
@@ -264,8 +272,9 @@ void EleroCover::handle_learn_blind_reply() {
 
   ESP_LOGI(TAG, "Blind learn reply received, queueing follow-up learn packets");
   this->learn_waiting_for_reply_ = false;
-  queue_raw_learn_packet(0x1d, 0xf8, 0x10, 0x0a, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_ACK_PAYLOAD, 10);
-  queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_START_PAYLOAD, 10);
+  const uint32_t now = millis();
+  queue_raw_learn_packet(0x1d, 0xf8, 0x10, 0x0a, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_ACK_PAYLOAD, 10, now + 400);
+  queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_START_PAYLOAD, 10, now + 900);
 }
 
 void EleroCover::trigger_learn_step(EleroLearnStep step) {
@@ -277,11 +286,12 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
 
   auto queue_raw_learn_packet = [&](uint8_t length, uint8_t type, uint8_t type2, uint8_t hop,
                                    uint8_t counter, uint8_t dst0, uint8_t dst1, uint8_t dst2,
-                                   const uint8_t *body, uint8_t body_len) {
+                                   const uint8_t *body, uint8_t body_len, uint32_t not_before = 0) {
     QueuedCommand queued{};
     queued.raw_mode = true;
     queued.has_counter = true;
     queued.counter = counter;
+    queued.not_before = not_before;
     queued.packet_len = length + 1;
     uint8_t *p = queued.raw_packet;
     p[0] = length;
@@ -324,11 +334,13 @@ void EleroCover::trigger_learn_step(EleroLearnStep step) {
       break;
     case ELERO_LEARN_STEP_CONFIRM_UP:
       ESP_LOGI(TAG, "Queueing learn confirm UP for remote 0x%06x", learn_remote);
-      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD, 10);
+      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD_A, 10);
+      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_UP_PAYLOAD_B, 10);
       break;
     case ELERO_LEARN_STEP_CONFIRM_DOWN:
       ESP_LOGI(TAG, "Queueing learn confirm DOWN for remote 0x%06x", learn_remote);
-      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD, 10);
+      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD_A, 10);
+      queue_raw_learn_packet(0x1d, 0x78, 0x10, 0x00, next_learn_counter(), (this->command_.blind_addr >> 16) & 0xFF, (this->command_.blind_addr >> 8) & 0xFF, this->command_.blind_addr & 0xFF, ELERO_LEARN_RAW_CONFIRM_DOWN_PAYLOAD_B, 10);
       break;
     case ELERO_LEARN_STEP_FINALIZE:
       ESP_LOGI(TAG, "Queueing learn finalize for remote 0x%06x", learn_remote);
