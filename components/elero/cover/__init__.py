@@ -20,6 +20,8 @@ CONF_COMMAND_DOWN = "command_down"
 CONF_COMMAND_STOP = "command_stop"
 CONF_COMMAND_CHECK = "command_check"
 CONF_COMMAND_TILT = "command_tilt"
+CONF_COMMAND_CHECK_LEN = "command_check_len"
+CONF_COMMAND_CONTROL_LEN = "command_control_len"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_SUPPORTS_TILT = "supports_tilt"
 
@@ -49,6 +51,8 @@ CONFIG_SCHEMA = cover.cover_schema(EleroCover).extend(
         cv.Optional(CONF_COMMAND_STOP, default=0x10): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_CHECK, default=0x00): cv.hex_int_range(min=0x0, max=0xff),
         cv.Optional(CONF_COMMAND_TILT, default=0x24): cv.hex_int_range(min=0x0, max=0xff),
+        cv.Optional(CONF_COMMAND_CHECK_LEN, default=29): cv.one_of(27, 29, int=True),
+        cv.Optional(CONF_COMMAND_CONTROL_LEN, default=29): cv.one_of(27, 29, int=True),
         cv.Optional(CONF_SUPPORTS_TILT, default=False): cv.boolean,
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -75,5 +79,7 @@ async def to_code(config):
     cg.add(var.set_command_check(config[CONF_COMMAND_CHECK]))
     cg.add(var.set_command_stop(config[CONF_COMMAND_STOP]))
     cg.add(var.set_command_tilt(config[CONF_COMMAND_TILT]))
+    cg.add(var.set_command_check_len(config[CONF_COMMAND_CHECK_LEN]))
+    cg.add(var.set_command_control_len(config[CONF_COMMAND_CONTROL_LEN]))
     cg.add(var.set_poll_interval(config[CONF_POLL_INTERVAL]))
     cg.add(var.set_supports_tilt(config[CONF_SUPPORTS_TILT]))

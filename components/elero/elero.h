@@ -85,7 +85,7 @@ class Elero : public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARIT
   void flush_and_rx();
   void interpret_msg();
   void register_cover(EleroCover *cover);
-  bool send_command(t_elero_command *cmd);
+  bool send_command(t_elero_command *cmd, uint8_t packet_len);
   
   void set_gdo0_pin(InternalGPIOPin *pin) { gdo0_pin_ = pin; }
   void set_freq0(uint8_t freq) { freq0_ = freq; }
@@ -118,4 +118,3 @@ class Elero : public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARIT
 
 }  // namespace elero
 }  // namespace esphome
-

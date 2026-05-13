@@ -61,6 +61,8 @@ cover:
     command_up: 0x20
     command_down: 0x40
     command_tilt: 0x24
+    command_check_len: 29
+    command_control_len: 29
 ```
 
 ### Section spi
@@ -94,6 +96,8 @@ cover:
   * `command_up`: Configure the command sent for opening the blind if different from `0x20` (Optional)
   * `command_down`: Configure the command sent for closing the blind if different from `0x40` (Optional)
   * `command_tilt`: Configure the command sent for tilting the blind if different from `0x24` (Optional)
+  * `command_check_len`: Configure the packet length used for status polling. Supported values are `29` and `27`, default is `29`. (Optional)
+  * `command_control_len`: Configure the packet length used for UP, DOWN, STOP and TILT commands. Supported values are `29` and `27`, default is `29`. (Optional)
 
 ## Getting the blind address and other values
 
@@ -118,7 +122,7 @@ You need to have an existing remote control configure and connected to to your b
   ```
     len=29, cnt=46, typ=0x6a, typ2=0x00, hop=0a, syst=01, chl=09, src=0x908bef, bwd=0x908bef, fwd=0x908bef, #dst=01, dst=e039c9, rssi=-84.0, lqi=47, crc= 1, payload=[0x00 0x04 0x00 0x00 0x20 0x00 0x00 0x00 0x00 0x40]
   ```
-  You are looking for packets with `len=29`. Those with `len=27` are something else (don't know what).
+  Some remotes use `len=29` for both state polling and control commands. Others use `len=29` for state polling but `len=27` for UP, DOWN and STOP. In that case, set `command_check_len: 29` and `command_control_len: 27`.
 
   4. Add all required information to the configuration file and check. Your blinds should start moving.
 

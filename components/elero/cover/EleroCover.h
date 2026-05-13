@@ -9,6 +9,11 @@
 namespace esphome {
 namespace elero {
 
+struct QueuedCommand {
+  uint8_t command;
+  uint8_t packet_len;
+};
+
 class EleroCover : public cover::Cover, public Component {
  public:
   void setup() override;
@@ -32,6 +37,8 @@ class EleroCover : public cover::Cover, public Component {
   void set_command_stop(uint8_t cmd) { this->command_stop_ = cmd; }
   void set_command_check(uint8_t cmd) { this->command_check_ = cmd; }
   void set_command_tilt(uint8_t cmd) { this->command_tilt_ = cmd; }
+  void set_command_check_len(uint8_t len) { this->command_check_len_ = len; }
+  void set_command_control_len(uint8_t len) { this->command_control_len_ = len; }
   void set_poll_offset(uint32_t offset) { this->poll_offset_ = offset; }
   void set_close_duration(uint32_t dur) { this->close_duration_ = dur; }
   void set_open_duration(uint32_t dur) { this->open_duration_ = dur; }
@@ -40,6 +47,7 @@ class EleroCover : public cover::Cover, public Component {
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
   void set_rx_state(uint8_t state);
   void handle_commands(uint32_t now);
+  void queue_command(uint8_t command, uint8_t packet_len);
   void recompute_position();
   void start_movement(cover::CoverOperation op);
   bool is_at_target();
@@ -68,7 +76,9 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t command_check_{0x00};
   uint8_t command_stop_{0x10};
   uint8_t command_tilt_{0x24};
-  std::queue<uint8_t> commands_to_send_;
+  uint8_t command_check_len_{0x1d};
+  uint8_t command_control_len_{0x1d};
+  std::queue<QueuedCommand> commands_to_send_;
   uint8_t send_retries_{0};
   uint8_t send_packets_{0};
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
@@ -76,4 +86,3 @@ class EleroCover : public cover::Cover, public Component {
 
 } // namespace elero
 } // namespace esphome
-

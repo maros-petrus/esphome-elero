@@ -32,7 +32,7 @@ void EleroCover::loop() {
   }
 
   if((now > this->poll_offset_) && (now - this->poll_offset_ - this->last_poll_) > intvl) {
-    this->commands_to_send_.push(this->command_check_);
+    this->queue_command(this->command_check_, this->command_check_len_);
     this->last_poll_ = now - this->poll_offset_;
   }
 
@@ -41,7 +41,7 @@ void EleroCover::loop() {
   if((this->current_operation != COVER_OPERATION_IDLE) && (this->open_duration_ > 0) && (this->close_duration_ > 0)) {
     this->recompute_position();
     if(this->is_at_target()) {
-      this->commands_to_send_.push(this->command_stop_);
+      this->queue_command(this->command_stop_, this->command_control_len_);
       this->current_operation = COVER_OPERATION_IDLE;
       this->target_position_ = COVER_OPEN;
     }
@@ -74,8 +74,9 @@ bool EleroCover::is_at_target() {
 void EleroCover::handle_commands(uint32_t now) {
   if((now - this->last_command_) > ELERO_DELAY_SEND_PACKETS) {
     if(this->commands_to_send_.size() > 0) {
-      this->command_.payload[4] = this->commands_to_send_.front();
-      if(this->parent_->send_command(&this->command_)) {
+      const auto queued = this->commands_to_send_.front();
+      this->command_.payload[4] = queued.command;
+      if(this->parent_->send_command(&this->command_, queued.packet_len)) {
         this->send_packets_++;
         this->send_retries_ = 0;
         if(this->send_packets_ >= ELERO_SEND_PACKETS) {
@@ -95,6 +96,10 @@ void EleroCover::handle_commands(uint32_t now) {
       this->last_command_ = now;
     }
   }
+}
+
+void EleroCover::queue_command(uint8_t command, uint8_t packet_len) {
+  this->commands_to_send_.push({command, packet_len});
 }
 
 float EleroCover::get_setup_priority() const { return setup_priority::DATA; }
@@ -183,7 +188,7 @@ void EleroCover::control(const cover::CoverCall &call) {
   if (call.get_tilt().has_value()) {
     auto tilt = *call.get_tilt();
     if(tilt > 0) {
-      this->commands_to_send_.push(this->command_tilt_);
+      this->queue_command(this->command_tilt_, this->command_control_len_);
       this->tilt = 1.0;
     } else {
       this->tilt = 0.0;
@@ -211,20 +216,20 @@ void EleroCover::start_movement(CoverOperation dir) {
   switch(dir) {
     case COVER_OPERATION_OPENING:
       ESP_LOGV(TAG, "Sending OPEN command");
-      this->commands_to_send_.push(this->command_up_);
+      this->queue_command(this->command_up_, this->command_control_len_);
       // Reset tilt state on movement
       this->tilt = 0.0;
       this->last_operation_ = COVER_OPERATION_OPENING;
     break;
     case COVER_OPERATION_CLOSING:
       ESP_LOGV(TAG, "Sending CLOSE command");
-      this->commands_to_send_.push(this->command_down_);
+      this->queue_command(this->command_down_, this->command_control_len_);
       // Reset tilt state on movement
       this->tilt = 0.0;
       this->last_operation_ = COVER_OPERATION_CLOSING;
     break;
     case COVER_OPERATION_IDLE:
-      this->commands_to_send_.push(this->command_stop_);
+      this->queue_command(this->command_stop_, this->command_control_len_);
     break;
   }
 

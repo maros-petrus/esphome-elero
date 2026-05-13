@@ -19,3 +19,5 @@ cover:
     channel: 4
     remote_address: 0xf0d008
     name: Schlafzimmer
+    command_check_len: 29
+    command_control_len: 27
