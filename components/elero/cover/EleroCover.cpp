@@ -14,12 +14,53 @@ void EleroCover::dump_config() {
 
 void EleroCover::setup() {
   this->parent_->register_cover(this);
+  this->counter_pref_ = global_preferences->make_preference<uint8_t>(0x454C0000U ^ this->command_.remote_addr);
+  uint8_t restored_counter;
+  if (this->counter_pref_.load(&restored_counter) && restored_counter != 0) {
+    this->command_.counter = restored_counter;
+    this->counter_pref_loaded_ = true;
+    ESP_LOGD(TAG, "Restored counter %u for remote 0x%06x", restored_counter, this->command_.remote_addr);
+  }
   auto restore = this->restore_state_();
   if (restore.has_value()) {
     restore->apply(this);
   } else {
     if((this->open_duration_ > 0) && (this->close_duration_ > 0))
       this->position = 0.5f;
+  }
+}
+
+uint8_t EleroCover::next_counter_(uint8_t counter) {
+  if (counter == 0xff)
+    return 1;
+  return counter + 1;
+}
+
+bool EleroCover::counter_is_ahead_(uint8_t candidate) const {
+  if (candidate == this->command_.counter)
+    return false;
+
+  uint8_t distance = static_cast<uint8_t>(candidate - this->command_.counter);
+  return distance < 128;
+}
+
+void EleroCover::save_counter_() {
+  if (this->command_.counter == 0)
+    return;
+  this->counter_pref_.save(&this->command_.counter);
+  this->counter_pref_loaded_ = true;
+}
+
+void EleroCover::sync_counter_from_remote(uint8_t seen_counter) {
+  uint8_t candidate = this->next_counter_(seen_counter);
+  if (!this->counter_pref_loaded_ || this->counter_is_ahead_(candidate)) {
+    if (candidate != this->command_.counter) {
+      ESP_LOGD(TAG, "Syncing counter for remote 0x%06x from %u to %u", this->command_.remote_addr, this->command_.counter, candidate);
+      this->command_.counter = candidate;
+      this->save_counter_();
+    } else {
+      this->counter_pref_loaded_ = true;
+    }
   }
 }
 
@@ -212,10 +253,8 @@ void EleroCover::set_rx_state(uint8_t state) {
 }
 
 void EleroCover::increase_counter() {
-  if(this->command_.counter == 0xff)
-    this->command_.counter = 1;
-  else
-    this->command_.counter += 1;
+  this->command_.counter = this->next_counter_(this->command_.counter);
+  this->save_counter_();
 }
 
 void EleroCover::control(const cover::CoverCall &call) {

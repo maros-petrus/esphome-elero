@@ -2,6 +2,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
+#include "esphome/core/preferences.h"
 #include "esphome/components/cover/cover.h"
 #include "esphome/components/elero/elero.h"
 #include <queue>
@@ -63,8 +64,10 @@ class EleroCover : public cover::Cover, public Component {
   void set_open_duration(uint32_t dur) { this->open_duration_ = dur; }
   void set_poll_interval(uint32_t intvl) { this->poll_intvl_ = intvl; }
   uint32_t get_blind_address() { return this->command_.blind_addr; }
+  uint32_t get_remote_address() { return this->command_.remote_addr; }
   void set_supports_tilt(bool tilt) { this->supports_tilt_ = tilt; }
   void set_rx_state(uint8_t state);
+  void sync_counter_from_remote(uint8_t seen_counter);
   void handle_commands(uint32_t now);
   void queue_check_command();
   void queue_control_command(uint8_t command);
@@ -75,6 +78,9 @@ class EleroCover : public cover::Cover, public Component {
  protected:
   void control(const cover::CoverCall &call) override;
   void increase_counter();
+  uint8_t next_counter_(uint8_t counter);
+  bool counter_is_ahead_(uint8_t candidate) const;
+  void save_counter_();
 
   t_elero_command command_ = {
     .counter = 1,
@@ -111,6 +117,8 @@ class EleroCover : public cover::Cover, public Component {
   uint8_t send_retries_{0};
   uint8_t send_packets_{0};
   cover::CoverOperation last_operation_{cover::COVER_OPERATION_OPENING};
+  ESPPreferenceObject counter_pref_;
+  bool counter_pref_loaded_{false};
 };
 
 } // namespace elero
