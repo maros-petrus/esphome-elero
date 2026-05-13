@@ -34,6 +34,24 @@ void Elero::loop() {
   }
 }
 
+static void log_raw_packet(const char *tag, const char *reason, const uint8_t *buf, uint8_t len) {
+  char line[3 * CC1101_FIFO_LENGTH + 1];
+  size_t pos = 0;
+  for (uint8_t i = 0; i < len && i < CC1101_FIFO_LENGTH; i++) {
+    if (pos + 3 >= sizeof(line))
+      break;
+    int written = snprintf(&line[pos], sizeof(line) - pos, "%02X ", buf[i]);
+    if (written <= 0)
+      break;
+    pos += static_cast<size_t>(written);
+  }
+  if (pos > 0 && pos < sizeof(line))
+    line[pos - 1] = '\0';
+  else
+    line[0] = '\0';
+  ESP_LOGE(tag, "%s raw=[%s]", reason, line);
+}
+
 void IRAM_ATTR Elero::interrupt(Elero *arg) {
   arg->set_received();
 }
@@ -408,6 +426,7 @@ void Elero::interpret_msg() {
   // Sanity check
   if(length > ELERO_MAX_PACKET_SIZE) {
     ESP_LOGE(TAG, "Received invalid packet: too long (%d)", length);
+    log_raw_packet(TAG, "Invalid packet", this->msg_rx_, length + 3 > CC1101_FIFO_LENGTH ? CC1101_FIFO_LENGTH : length + 3);
     return;
   }
 
@@ -434,6 +453,7 @@ void Elero::interpret_msg() {
   // Sanity check
   if(dests_len + 15 > CC1101_FIFO_LENGTH) {
     ESP_LOGE(TAG, "Received invalid packet: dests_len too long (%d)", dests_len);
+    log_raw_packet(TAG, "Invalid packet", this->msg_rx_, length + 3 > CC1101_FIFO_LENGTH ? CC1101_FIFO_LENGTH : length + 3);
     return;
   }
 
